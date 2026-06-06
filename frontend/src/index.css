@@ -1,0 +1,186 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@utilities;
+@layer base {
+  :root {
+    --background: 216 100% 9%;
+    --foreground: 190 100% 95%;
+
+    --card: 216 80% 8%;
+    --card-foreground: 190 100% 95%;
+
+    --popover: 216 80% 8%;
+    --popover-foreground: 190 100% 95%;
+
+    --primary: 186 100% 50%;
+    --primary-foreground: 216 100% 5%;
+
+    --secondary: 216 40% 16%;
+    --secondary-foreground: 190 100% 90%;
+
+    --muted: 216 30% 14%;
+    --muted-foreground: 210 20% 55%;
+
+    --accent: 186 100% 50%;
+    --accent-foreground: 216 100% 5%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 0 0% 100%;
+    --input: 216 30% 18%;
+    --ring: 186 100% 50%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 216 80% 6%;
+    --sidebar-foreground: 190 100% 90%;
+    --sidebar-primary: 186 100% 50%;
+    --sidebar-primary-foreground: 216 100% 5%;
+    --sidebar-accent: 216 40% 14%;
+    --sidebar-accent-foreground: 190 100% 90%;
+    --sidebar-border: 0 0% 100%;
+    --sidebar-ring: 186 100% 50%;
+
+    /* Custom tokens */
+    --neon: 186 100% 50%;
+    --neon-glow: 0 0 20px hsl(186 100% 50% / 0.4), 0 0 40px hsl(186 100% 50% / 0.2);
+    --neon-glow-strong: 0 0 20px hsl(186 100% 50% / 0.6), 0 0 60px hsl(186 100% 50% / 0.3);
+    --glass-bg: hsl(216 80% 8% / 0.6);
+    --glass-border: hsl(0 0% 100% / 0.1);
+    --glass-blur: 16px;
+    --success: 145 80% 50%;
+    --warning: 40 100% 60%;
+    --match-green: 145 80% 50%;
+    --match-red: 0 84% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border/10;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body antialiased;
+    background: linear-gradient(to bottom right, hsl(216 100% 9%), hsl(0 0% 0%));
+    min-height: 100vh;
+  }
+}
+
+@layer components {
+  .glass-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .glass-card:hover {
+    border-color: hsl(var(--neon) / 0.6);
+    box-shadow: var(--neon-glow);
+  }
+
+  .glow-button {
+    @apply relative overflow-hidden px-6 py-2 rounded-lg font-display font-medium text-sm;
+    background: hsl(var(--neon) / 0.15);
+    border: 1px solid hsl(var(--neon) / 0.4);
+    color: hsl(var(--neon));
+    transition: all 0.3s ease;
+  }
+
+  .glow-button:hover {
+    background: hsl(var(--neon) / 0.25);
+    border-color: hsl(var(--neon));
+    box-shadow: var(--neon-glow);
+  }
+
+  .thinking-border {
+    position: relative;
+  }
+
+  .thinking-border::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    padding: 1px;
+    background: conic-gradient(from var(--angle, 0deg), transparent 60%, hsl(var(--neon)) 80%, transparent 100%);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    animation: rotate-border 3s linear infinite;
+  }
+
+  @keyframes rotate-border {
+    to { --angle: 360deg; }
+  }
+
+  @property --angle {
+    syntax: '<angle>';
+    initial-value: 0deg;
+    inherits: false;
+  }
+
+  .neon-text {
+    color: hsl(var(--neon));
+    text-shadow: 0 0 10px hsl(var(--neon) / 0.5);
+  }
+
+  .glass-input {
+    @apply w-full rounded-lg px-4 py-3 text-sm font-body;
+    background: hsl(216 80% 8% / 0.8);
+    border: 1px solid var(--glass-border);
+    color: hsl(var(--foreground));
+    transition: all 0.3s ease;
+  }
+
+  .glass-input:focus {
+    outline: none;
+    border-color: hsl(var(--neon) / 0.6);
+    box-shadow: var(--neon-glow);
+  }
+
+  .glass-input::placeholder {
+    color: hsl(var(--muted-foreground));
+  }
+   /* Custom scrollbar for the message container */
+  .glass-card::-webkit-scrollbar {
+  width: 6px; /* Slimmer, modern look */
+  }
+
+  .glass-card::-webkit-scrollbar-track {
+  background: transparent; /* Keeps the glass effect clean */
+  }
+
+  .glass-card::-webkit-scrollbar-thumb {
+  background: rgba(0, 195, 255, 0.3); /* Your light blue/neon color with transparency */
+  border-radius: 10px;
+  }
+
+  .glass-card::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 195, 255, 0.5); /* Brightens on hover */
+  }
+}
+
+@layer utilities {
+  .fade-in-up {
+    animation: fadeInUp 0.6s ease-out forwards;
+  }
+
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
