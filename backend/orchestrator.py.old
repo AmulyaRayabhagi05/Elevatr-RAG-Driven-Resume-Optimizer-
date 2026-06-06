@@ -1,0 +1,255 @@
+import asyncio
+import json
+from typing import List, Union
+from pydantic import BaseModel, Field
+from langchain.chat_models import init_chat_model
+from langchain.messages import HumanMessage, AIMessage, SystemMessage
+from dotenv import load_dotenv
+from bson import ObjectId
+from database import memory, mongo
+from modules.skill_gap import run_skill_gap_module
+from modules.resume_builder import generate_resume
+from modules.grad_school import GradSchoolPrep
+from modules.job_search import run_job_search
+from jinja2 import Environment, FileSystemLoader
+
+
+
+jinja_env = Environment(loader=FileSystemLoader("prompts"))
+
+load_dotenv()
+
+MAX_HISTORY_MESSAGES = 6
+MAX_MODULE_OUTPUT_LENGTH = 2400
+MAX_PROFILE_TEXT_LENGTH = 1200
+
+
+def truncate_text(value, max_length=2000):
+    if value is None:
+        return ""
+    text = str(value)
+    return text if len(text) <= max_length else text[: max_length - 1] + "…"
+
+
+def safe_text(value):
+    if isinstance(value, str):
+        return value
+    try:
+        return json.dumps(value, ensure_ascii=False)
+    except Exception:
+        return str(value)
+
+
+def compact_student_profile(profile: dict) -> dict:
+    if not isinstance(profile, dict):
+        return {}
+
+    return {
+        "major": profile.get("major", ""),
+        "gpa": profile.get("gpa", 0.0),
+        "gre": profile.get("gre", None),
+        "target_job": profile.get("target_job", ""),
+        "current_org": profile.get("current_org", ""),
+        "current_role": profile.get("current_role", ""),
+        "skills": profile.get("skills", []) or [],
+        "coursework": profile.get("coursework", []) or [],
+        "location_preference": profile.get("location_preference", []) or [],
+        "sop": truncate_text(profile.get("sop", ""), MAX_PROFILE_TEXT_LENGTH),
+        "resumeText": truncate_text(profile.get("resumeText", ""), MAX_PROFILE_TEXT_LENGTH),
+    }
+
+
+def compact_history(history: list) -> list:
+    if not isinstance(history, list):
+        return []
+
+    trimmed = history[-MAX_HISTORY_MESSAGES:]
+    return [
+        {
+            "role": m.get("role", "human") if isinstance(m, dict) else "human",
+            "message": truncate_text(m.get("message", "") if isinstance(m, dict) else str(m), 1200),
+        }
+        for m in trimmed
+    ]
+
+
+# ---- SCHEMA ----
+class FinalResponse(BaseModel):
+    answer: str
+    
+class ResumeBuilderInput(BaseModel):
+    target_role: str
+    skills: List[str]
+    coursework: List[str] = Field(default_factory=list)  # empty list if none
+    projects: List[str] = Field(default_factory=list)
+    major: str = ""
+
+class JobSearchInput(BaseModel):
+    skills: List[str]
+    major: str
+    coursework: List[str]
+    location_preference: List[str]
+    target_role: str
+
+class GradSchoolInput(BaseModel):
+    major: str
+    gpa: float
+    gre: int = 0
+    coursework: List[str] = Field(default_factory=list)
+
+class SkillGapInput(BaseModel):
+    target_role: str
+    skills: List[str]
+
+
+
+class SubTask(BaseModel):
+    module: str = Field(description="The target module name")
+    inputs: Union[
+        ResumeBuilderInput,
+        JobSearchInput,
+        GradSchoolInput,
+        SkillGapInput
+    ] = Field(description="Structured Input specified to each module", discriminator= None)
+
+class Decomposition(BaseModel):
+    sub_tasks: List[SubTask] 
+    
+# ---- MODULE EXECUTION ----
+
+async def call_module(module_name, input):
+    if module_name == "resume_builder":
+        enriched_profile = {
+            "skills": input.skills,
+            "coursework": input.coursework,
+            "projects": input.projects,
+            "major": input.major
+        }
+        print(f"[call_module] enriched_profile passed to generate_resume: {enriched_profile}")
+        loop = asyncio.get_running_loop()
+        result = await loop.run_in_executor(None, generate_resume, enriched_profile, input.target_role)
+        return result
+            
+    elif module_name == "job_search":
+        student_profile = {
+        "skills": input.skills,
+        "major": input.major,
+        "coursework": input.coursework,
+        "location_preference": input.location_preference,
+        "target_role": input.target_role
+        }
+        result = await run_job_search(student_profile) 
+        return result
+    
+    elif module_name == "grad_school":
+        grad_profile = {
+        "major":      input.major,
+        "gpa":        input.gpa,
+        "gre":        input.gre,
+        "coursework": input.coursework
+        }
+        module = GradSchoolPrep()
+        result = await module.run(grad_profile)  # ← just await directly
+        return result
+    elif module_name == "skill_gap": 
+        enriched_profile = {
+            "skills": input.skills
+        }
+        result = await run_skill_gap_module(input.target_role, enriched_profile)
+        return result
+    elif module_name == "interview":
+        return "Redirect user to interview module" 
+
+
+# ---- FINAL PROMPT GENERATION ----
+
+async def generate_final_response(query: str, student_profile: dict, module_output: dict) -> dict:
+    template = jinja_env.get_template("final_prompt.j2")
+    prompt = template.render(
+        profile=student_profile,
+        module_outputs=module_output,
+    )
+
+    model = init_chat_model(model="gpt-4o")
+    structured_model = model.with_structured_output(FinalResponse)
+
+    response = await asyncio.to_thread(
+        structured_model.invoke,
+        [
+            SystemMessage(prompt),
+            HumanMessage(query),
+        ],
+    )
+
+    return response.answer
+
+
+# ---- MAIN ORCHESTRATOR ----
+
+
+async def run(user_id: str, query: str, student_profile: dict, history: list | None = None):
+    history = compact_history(history or [])
+    compacted_profile = compact_student_profile(student_profile)
+
+    decomp_template = jinja_env.get_template("decomp_prompt.j2")
+    decomp_prompt = decomp_template.render()
+    model = init_chat_model(model='gpt-4o')
+    conversation = [SystemMessage(decomp_prompt)]
+    conversation.append(SystemMessage(f"Student Profile: {compacted_profile}"))
+
+    for m in history:
+        if m.get('role') == 'human':
+            conversation.append(HumanMessage(m.get('message', '')))
+        else:
+            conversation.append(AIMessage(m.get('message', '')))
+
+    conversation.append(HumanMessage(f"Query: {truncate_text(query, 1200)}"))
+
+    model = model.with_structured_output(Decomposition)
+    response = await asyncio.to_thread(model.invoke, conversation)
+    triggered_modules = [task.module for task in response.sub_tasks]
+
+    # Routing and Execution in Parallel
+    execution_list = []
+    try:
+        async with asyncio.timeout(120.0):
+            async with asyncio.TaskGroup() as tg:
+                for task in response.sub_tasks:
+                    t = tg.create_task(call_module(task.module, task.inputs))
+                    execution_list.append((task.module, t))
+    except TimeoutError:
+        raise Exception("Module execution timed out.")
+
+    results = {}
+    for module, task in execution_list:
+        try:
+            results[module] = task.result()
+        except Exception as exc:
+            results[module] = {"error": str(exc)}
+
+    trimmed_results = {
+        module: truncate_text(safe_text(output), MAX_MODULE_OUTPUT_LENGTH)
+        for module, output in results.items()
+    }
+
+    final = await generate_final_response(query, compacted_profile, trimmed_results)
+
+    return {
+        "query": query,
+        "modules_triggered": triggered_modules,
+        "results": results,
+        "answer": final,
+    }
+
+
+if __name__ == "__main__":
+    asyncio.run(run(
+        user_id="test",
+        query="Help me find a software engineering job",
+        student_profile={"skills": ["Python"], "major": "CS", "gpa": 3.5},
+        history=[]
+    ))
+
+
+# //test@gmail.com
+# test123

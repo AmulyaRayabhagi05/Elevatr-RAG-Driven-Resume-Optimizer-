@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>{{ name }} - Resume</title>
+<style>
+
+@page { size: letter; margin: 0.35in 0.45in 0.35in 0.45in; }
+
+body {
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 10.5pt;
+    line-height: 1.12;
+    margin: 0; padding: 0; color: #000;
+}
+
+/* ── Header ── */
+.hdr         { text-align: center; margin-bottom: 3px; }
+.hdr-name    { font-size: 18pt; font-weight: bold; margin: 0 0 1px 0; }
+.hdr-contact { font-size: 10.5pt; margin: 0; }
+.hdr-contact a { color: #000; text-decoration: underline; }
+
+/* ── Section headers ── */
+.sec {
+    font-size: 10.5pt; font-weight: bold;
+    text-decoration: underline; text-transform: uppercase;
+    margin: 5px 0 1px 0;
+}
+
+/* ── Summary ── */
+.summary { font-size: 10.5pt; margin: 1px 0 3px 0; }
+
+/* ── Education ── */
+.edu-block  { margin-bottom: 4px; }
+.edu-table  { width: 100%; border-collapse: collapse; }
+.edu-table td { padding: 0; vertical-align: baseline; }
+.edu-l      { text-align: left; }
+.edu-r      { text-align: right; font-style: italic; white-space: nowrap; padding-left: 8px; }
+.edu-deg    { font-weight: bold; }
+.edu-course { font-style: italic; font-size: 10.5pt; margin: 0; }
+
+/* ── Skills ── */
+.sk-table   { width: 100%; border-collapse: collapse; margin: 1px 0; }
+.sk-table td { padding: 1px 0; vertical-align: top; font-size: 10.5pt; }
+.sk-label   { font-weight: bold; white-space: nowrap; width: 130px; padding-right: 10px; }
+
+/* ── Experience / Project entry ── */
+.entry      { margin-bottom: 3px; }
+
+.entry-hdr  {
+    width: 100%;
+    border-collapse: collapse;
+}
+.entry-hdr td { padding: 0 0 1px 0; vertical-align: bottom; }
+
+.e-left  { text-align: left; font-size: 10.5pt; }
+.e-right {
+    text-align: right;
+    font-style: italic;
+    font-size: 10.5pt;
+    white-space: nowrap;
+    padding-left: 8px;
+}
+
+ul.bul    { margin: 1px 0 0 0; padding-left: 16px; }
+ul.bul li { font-size: 10.5pt; line-height: 1.18; margin: 0; }
+
+/* ── Achievements ── */
+ul.ach    { margin: 1px 0 0 0; padding-left: 16px; }
+ul.ach li { font-size: 10.5pt; line-height: 1.18; margin: 0; }
+
+/* ── Auto density scaling ── */
+{% set tb = namespace(n=0) %}
+{% for j in experience %}{% set tb.n = tb.n + j.bullet_points|length %}{% endfor %}
+{% for p in projects  %}{% set tb.n = tb.n + p.bullet_points|length %}{% endfor %}
+{% set entries = (experience|length) + (projects|length) %}
+
+/* Base tightening — always applied */
+.entry { margin-bottom: 3px; }
+.edu-block { margin-bottom: 2px; }
+.sec { margin: 5px 0 1px 0; }
+
+{% if tb.n > 7 or entries > 3 %}
+@page { margin: 0.25in 0.4in 0.25in 0.4in; }
+body  { font-size: 10pt; }
+.hdr-name { font-size: 15pt; }
+.sec  { font-size: 10pt; margin: 4px 0 1px 0; }
+.edu-table td, .sk-table td, ul.bul li, ul.ach li,
+.e-left, .e-right, .summary, .hdr-contact { font-size: 10pt; }
+ul.bul { padding-left: 13px; }
+.entry { margin-bottom: 2px; }
+.edu-block { margin-bottom: 2px; }
+{% endif %}
+
+{% if tb.n > 12 or entries > 4 %}
+@page { margin: 0.18in 0.38in 0.18in 0.38in; }
+body  { font-size: 9.5pt; line-height: 1.1; }
+.hdr-name { font-size: 14pt; }
+.sec  { margin: 3px 0 1px 0; font-size: 9.5pt; }
+.edu-table td, .sk-table td, ul.bul li, ul.ach li,
+.e-left, .e-right, .summary, .hdr-contact { font-size: 9.5pt; }
+ul.bul li { line-height: 1.08; }
+.entry { margin-bottom: 1px; }
+.edu-block { margin-bottom: 1px; }
+{% endif %}
+
+{% if tb.n > 18 or entries > 6 %}
+@page { margin: 0.13in 0.35in 0.13in 0.35in; }
+body  { font-size: 9pt; line-height: 1.07; }
+.hdr-name { font-size: 13pt; }
+.sec  { margin: 2px 0 0px 0; font-size: 9pt; }
+.edu-table td, .sk-table td, ul.bul li, ul.ach li,
+.e-left, .e-right, .summary, .hdr-contact { font-size: 9pt; }
+ul.bul li { line-height: 1.05; }
+.entry { margin-bottom: 0px; }
+.edu-block { margin-bottom: 0px; }
+{% endif %}
+
+</style>
+</head>
+<body>
+
+<!-- ══ HEADER ══ -->
+<div class="hdr">
+  <div class="hdr-name">{{ name }}</div>
+  <div class="hdr-contact">
+    {% if location %}{{ location }} | {% endif %}{{ phone }} | <a href="mailto:{{ email }}">{{ email }}</a>{% if linkedin %} | <a href="{{ linkedin }}">LinkedIn</a>{% endif %}
+  </div>
+</div>
+
+<!-- ══ SUMMARY (hidden when empty) ══ -->
+{% if summary and summary.strip() %}
+<div class="sec">Summary</div>
+<div class="summary">{{ summary }}</div>
+{% endif %}
+
+<!-- ══ EDUCATION ══ -->
+{% if education %}
+<div class="sec">Education</div>
+{% for edu in education %}
+<div class="edu-block">
+  <table class="edu-table">
+    <tr>
+      <td class="edu-l"><span class="edu-deg">{{ edu.degree }}{% if edu.major %}, {{ edu.major }}{% endif %}</span></td>
+      <td class="edu-r">{{ edu.graduation_date }}</td>
+    </tr>
+    <tr>
+      <td class="edu-l">{{ edu.institution }}</td>
+      <td class="edu-r">{% if edu.gpa %}GPA: {{ edu.gpa }}{% endif %}</td>
+    </tr>
+  </table>
+  {% if edu.relevant_coursework %}
+  <div class="edu-course"><em>Relevant Courses:</em> {{ edu.relevant_coursework | join(', ') }}</div>
+  {% endif %}
+</div>
+{% endfor %}
+{% endif %}
+
+<!-- ══ SKILLS & CERTIFICATIONS ══ -->
+{% set has_sk = namespace(v=false) %}
+{% for cat, vals in categorized_skills.items() %}{% if vals %}{% set has_sk.v = true %}{% endif %}{% endfor %}
+{% if certifications %}{% set has_sk.v = true %}{% endif %}
+
+{% if has_sk.v %}
+<div class="sec">Skills and Certifications</div>
+<table class="sk-table">
+  {% for cat, vals in categorized_skills.items() %}{% if vals %}
+  <tr>
+    <td class="sk-label">{{ cat }}:</td>
+    <td>{{ vals | join(', ') }}</td>
+  </tr>
+  {% endif %}{% endfor %}
+  {% if certifications %}
+  <tr>
+    <td class="sk-label">Certifications:</td>
+    <td>{{ certifications | join(', ') }}</td>
+  </tr>
+  {% endif %}
+</table>
+{% endif %}
+
+<!-- ══ PROFESSIONAL EXPERIENCE ══ -->
+{% if experience %}
+<div class="sec">Professional Experience</div>
+{% for job in experience %}
+<div class="entry">
+  <table class="entry-hdr">
+    <tr>
+      <td class="e-left"><strong>{{ job.title }}</strong>{% if job.company %}, {{ job.company }}{% endif %}</td>
+      <td class="e-right">{{ job.start_date }} – {{ job.end_date }}</td>
+    </tr>
+    {% if job.location %}
+    <tr>
+      <td class="e-left" style="font-style: italic;">{{ job.location }}</td>
+      <td></td>
+    </tr>
+    {% endif %}
+  </table>
+  <ul class="bul">
+    {% for b in job.bullet_points %}<li>{{ b }}</li>{% endfor %}
+  </ul>
+</div>
+{% endfor %}
+{% endif %}
+
+<!-- ══ ACADEMIC PROJECTS ══ -->
+{% if projects %}
+<div class="sec">Academic Projects</div>
+{% for proj in projects %}
+<div class="entry">
+  <table class="entry-hdr">
+    <tr>
+      <td class="e-left"><strong>{{ proj.name }}</strong></td>
+      <td class="e-right">{{ proj.start_date }} – {{ proj.end_date }}</td>
+    </tr>
+    {% if proj.technologies %}
+    <tr>
+      <td class="e-left" colspan="2"><em>{{ proj.technologies | join(', ') }}</em></td>
+    </tr>
+    {% endif %}
+  </table>
+  <ul class="bul">
+    {% for b in proj.bullet_points %}<li>{{ b }}</li>{% endfor %}
+  </ul>
+</div>
+{% endfor %}
+{% endif %}
+
+<!-- ══ ACHIEVEMENTS ══ -->
+{% if achievements %}
+<div class="sec">Achievements</div>
+<ul class="ach">
+  {% for a in achievements %}<li>{{ a }}</li>{% endfor %}
+</ul>
+{% endif %}
+
+</body>
+</html>

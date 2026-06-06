@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Environment variables (Sensitive data)
+.env
+
+# Virtual environments (Python)
+venv/
+.venv/
+
+# Scripts and Data
+.scripts/
+scripts/
+data/
+.data/
+chroma_db/
+*.bin
+*.sqlite3
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+venv/
